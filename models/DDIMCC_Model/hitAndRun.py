@@ -67,7 +67,8 @@ from DDP import DDP
 ddp=DDP()
 input=torch.randn(size=(2,3,768,1024))
 pseudo_gt_map=torch.randn(size=(2,1,768,1024))
-way2=ddp._forward_step(input, pseudo_gt_map,)
+way2=ddp._inference_step(input, pseudo_gt_map)
+# way2=ddp._forward_step(input, pseudo_gt_map,)
 print(way2.shape, "is way2 shape")
 
 # from Transformer import timestep_embedding
