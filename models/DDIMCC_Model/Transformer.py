@@ -47,7 +47,7 @@ def unpatchify(x, channels=3, h_original=-1, w_original=-1):
     h=h_original // patch_size
     w=w_original // patch_size
     '''
-    h and w need to be transformed to the image height&length where
+    
     '''
     assert h * w == x.shape[1] and patch_size ** 2 * channels == x.shape[2]
     x = einops.rearrange(x, 'B (h w) (p1 p2 C) -> B C (h p1) (w p2)', h=h, p1=patch_size, p2=patch_size)
@@ -186,7 +186,10 @@ class UViT(nn.Module):
         self.norm = norm_layer(embed_dim)
         self.patch_dim = patch_size ** 2 * in_chans
         self.decoder_pred = nn.Linear(embed_dim, self.patch_dim, bias=True)
-        self.final_layer = nn.Conv2d(self.in_chans, self.in_chans, 3, padding=1) if conv else nn.Identity()
+        self.final_layer = nn.Conv2d(self.in_chans,1, 3, padding=1) if conv else nn.Identity()
+        self.sigmoid=nn.Sigmoid()
+        
+        # self.conv_depth = nn.Conv2d(256, 1, kernel_size=3, padding=1, stride=1)
 
         trunc_normal_(self.pos_embed, std=.02)
         self.apply(self._init_weights)
@@ -233,7 +236,7 @@ class UViT(nn.Module):
         assert x.size(1) == self.extras + L
         x = x[:, self.extras:, :]
         x = unpatchify(x, self.in_chans, h_origin, w_origin)
-        x = self.final_layer(x)
+        x = self.sigmoid(self.final_layer(x))  # This layer brings channel down to 1(desired channel since it is density map we are producing)
         return x
     
     

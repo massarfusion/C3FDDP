@@ -53,12 +53,7 @@ print("Shape after merging:{}".format(merged.shape))
 ...Shape after merging:torch.Size([2, 256, 192, 256])
 '''
 
-# from DDP import DDP
-# ddp=DDP()
-# input=torch.randn(size=(2,3,768,1024))
-# pseudo_gt_map=torch.randn(size=(2,1,768,1024))
-# way2=ddp.forward(input, pseudo_gt_map, train=True)
-# print(way2.shape, "is way2 shape")
+
 
 patch_embed=PatchEmbed(patch_size=4, in_chans=3, embed_dim=768)
 input=torch.randn(size=(2,3,768,1024))
@@ -68,42 +63,51 @@ print("output shape is after PatchEmbed: ", output.shape)
 ...output shape is after PatchEmbed:  torch.Size([2, 49152, 768])
 '''
 
+from DDP import DDP
+ddp=DDP()
+input=torch.randn(size=(2,3,768,1024))
+pseudo_gt_map=torch.randn(size=(2,1,768,1024))
+way2=ddp._forward_step(input, pseudo_gt_map,)
+print(way2.shape, "is way2 shape")
+
 # from Transformer import timestep_embedding
 # input=torch.arange(1,11)
 # temb=timestep_embedding(input, dim=1024)# (10, 1024)
 # print("timestep_embed size", temb.shape, temb)
 
-uvit=UViT(
-    img_size=(192, 256),
-    patch_size=4,
-    in_chans=256,
-    embed_dim=768,
-    depth=6,
-    num_heads=12,
-    mlp_ratio=4.,
-    qkv_bias=False,
-    qk_scale=None,
-    norm_layer=nn.LayerNorm,
-    mlp_time_embed=False,
-    num_classes=-1,
-    use_checkpoint=True,
-    conv=True,
-    skip=True
-)
-input=torch.randn(size=(2,256,192,256))
-timestep=...# (Batch, )
-timestep=torch.arange(0,2)
-uvit.cuda()
-input=input.cuda()
-timestep = timestep.cuda()
-print()
-output=uvit(input, timestep)
+# uvit=UViT(
+#     img_size=(192, 256),
+#     patch_size=4,
+#     in_chans=256,
+#     embed_dim=768,
+#     depth=6,
+#     num_heads=12,
+#     mlp_ratio=4.,
+#     qkv_bias=False,
+#     qk_scale=None,
+#     norm_layer=nn.LayerNorm,
+#     mlp_time_embed=False,
+#     num_classes=-1,
+#     use_checkpoint=True,
+#     conv=True,
+#     skip=True
+# )
+# input=torch.randn(size=(2,256,192,256))
+# timestep=...# (Batch, )
+# timestep=torch.arange(0,2)
+# uvit.cuda()
+# input=input.cuda()
+# timestep = timestep.cuda()
+# print()
+# output=uvit(input, timestep)
+#
+# from torchviz import  make_dot
+# make_dot(output.mean(), params=dict(uvit.named_parameters()))
+#
+# print("output shape is after PatchEmbed: ", output.shape)
+# '''
+# ...output shape is after PatchEmbed:  torch.Size([2, 256, 192, 256])
+# '''
 
-from torchviz import  make_dot
-make_dot(output.mean(), params=dict(uvit.named_parameters()))
 
-print("output shape is after PatchEmbed: ", output.shape)
-'''
-...output shape is after PatchEmbed:  torch.Size([2, 256, 192, 256])
-'''
 

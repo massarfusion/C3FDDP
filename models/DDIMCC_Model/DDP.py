@@ -37,8 +37,10 @@ class DDP(pl.LightningModule):
             conv=True,
             skip=True
         )
-        self.sample_range=[0, 0.999]
+        self.sample_range=[0, 999]
+        self.timesteps=1000
         self.loss_fn=nn.MSELoss()
+        
     
     def training_step(self, batch, batch_idx):
         x,y = batch
@@ -79,25 +81,50 @@ class DDP(pl.LightningModule):
         
         # cook up noise and add to ground truth map(following cosine noise schedule)
         eps = torch.randn_like(gt_map)
-        t = torch.zeros((batch,), device=device).float().uniform_(self.sample_range[0], self.sample_range[1])  # [batch]
-        while t.ndim < gt_map.ndim:
-            t = t.unsqueeze(-1)
-        gt_map_corrupted = torch.sqrt(self.gamma(t)) * gt_map + torch.sqrt(1 - self.gamma(t)) * eps
+        t = torch.zeros((batch,), device=device).float().uniform_(self.sample_range[0], self.sample_range[1]).ceil()
+        t_noise_control = t / self.timesteps  # size is [batch, ]
+        while t_noise_control.ndim<gt_map.ndim:
+            t_noise_control=t_noise_control.unsqueeze(-1)
+        gt_map_corrupted = torch.sqrt(self.gamma(t_noise_control)) * gt_map + torch.sqrt(1 - self.gamma(t_noise_control)) * eps
         
         # "Fuse" together 1.extracted feature map(from RGB image) and 2.corrupted noise together.
         feat = torch.cat([extracted_feature, gt_map_corrupted], dim=1)  # (batch, 256+1, H/4, W/4)
         feat = self.beforeUnet(feat)  # (batch, 256, H/4, W/4)
         
         # Prepare time information
-        timestep=?
+        # must be  from [0,999] range, this is to be fed to unet argument 't'
+        timestep_for_unet=t
         
         # get predicted x_0, we directly calculate loss on this, with ground truth density map.
-        pred_map = self.unet(feat, timestep)  # (batch, 1, H/4, W/4)
+        pred_map = self.unet(feat, timestep_for_unet)  # (batch, 1, H/4, W/4)
+        
+        # Get loss and get out
         loss = self.loss_fn(pred_map, gt_map)
         return loss, pred_map, gt_map
     
+    def _inference_step(self, x, gt=None):
+        Finishme
+        '''
+        
+
+ _____   ____    ____   _______    _____      ________   ____    ____   ________   ____  _____   _________
+|_   _| |_   \  /   _| |_   __ \  |_   _|    |_   __  | |_   \  /   _| |_   __  | |_   \|_   _| |  _   _  |
+  | |     |   \/   |     | |__) |   | |        | |_ \_|   |   \/   |     | |_ \_|   |   \ | |   |_/ | | \_|
+  | |     | |\  /| |     |  ___/    | |   _    |  _| _    | |\  /| |     |  _| _    | |\ \| |       | |
+ _| |_   _| |_\/_| |_   _| |_      _| |__/ |  _| |__/ |  _| |_\/_| |_   _| |__/ |  _| |_\   |_     _| |_
+|_____| |_____||_____| |_____|    |________| |________| |_____||_____| |________| |_____|\____|   |_____|
+        
+
+        '''
+    
     def gamma(self, t, ns=0.0002, ds=0.00025):
+        '''
+        : t within [0.0, 0.999] range, in guided_diffusion it takes sample from [0,999] and divide it by 1000, now we do this outside
+        : return alphas_cumprod at (input_t * 1000) step
+        '''
         return torch.cos(((t + ns) / (1 + ds)) * math.pi / 2) ** 2
+    
+    
     
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.LR)
@@ -143,7 +170,8 @@ class DDP(pl.LightningModule):
         
         # cook up noise and add to ground truth map(following cosine noise schedule)
         eps = torch.randn_like(gt_map)
-        t = torch.zeros((batch,), device=device).float().uniform_(self.sample_range[0], self.sample_range[1])  # [batch]
+        t = torch.zeros((batch,), device=device).float().uniform_(self.sample_range[0], self.sample_range[1])
+        t = t / self.timesteps# size is [batch, ]
         while t.ndim<gt_map.ndim:
             t=t.unsqueeze(-1)
         gt_map_corrupted = torch.sqrt(self.gamma(t)) * gt_map + torch.sqrt(1 - self.gamma(t)) * eps
