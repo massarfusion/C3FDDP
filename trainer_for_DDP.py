@@ -1,15 +1,19 @@
 import numpy as np
+from pytorch_lightning.loggers import TensorBoardLogger
 from tqdm import tqdm
 import torch
 from torch import optim
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import StepLR
+import pytorch_lightning as pl
 
 from models.DDIMCC import CrowdCounter
+from models.DDIMCC_Model.DDP import DDP
 # from models.CCLoRA import CrowdCounter
 from config import cfg
 from misc.utils import *
 import pdb
+
 
 
 class Trainer():
@@ -24,6 +28,7 @@ class Trainer():
 
         self.net_name = cfg.NET
         self.net = CrowdCounter(cfg.GPU_ID,self.net_name).cuda()
+        self.pl_model = DDP(pretrained=True)
         self.optimizer = optim.Adam(self.net.CCN.parameters(), lr=cfg.LR, weight_decay=1e-4)
         # self.optimizer = optim.SGD(self.net.parameters(), cfg.LR, momentum=0.95,weight_decay=5e-4)
         self.scheduler = StepLR(self.optimizer, step_size=cfg.NUM_EPOCH_LR_DECAY, gamma=cfg.LR_DECAY)          
@@ -53,8 +58,28 @@ class Trainer():
 
         self.writer, self.log_txt = logger(self.exp_path, self.exp_name, self.pwd, 'exp', resume=cfg.RESUME)
 
-    def forward(self):
 
+    def pl_forward(self):
+        torch.set_float32_matmul_precision('medium')
+        logger = TensorBoardLogger("tf_logs_PytorchLightning", "DDP_model")
+        trainer = pl.Trainer(accelerator='gpu',
+                             profiler="Simple",
+                             logger=logger,
+                             devices=[0],
+                             min_epochs=1,
+                             max_epochs=300,
+                             precision=32,
+                             # fast_dev_run=True,
+                             fast_dev_run=False,
+                             default_root_dir="./exp_PytorchLightning/ConvNext-T-DDP/"
+                             )
+        trainer.fit(self.pl_model, self.train_loader, self.val_loader)
+        trainer.validate(self.pl_model, self.val_loader )
+        trainer.test(self.pl_model, self.val_loader)
+    def forward(self):
+        
+        
+        
         # self.validate_V3()
         for epoch in tqdm(range(self.epoch,cfg.MAX_EPOCH)):
             self.epoch = epoch

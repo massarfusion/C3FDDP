@@ -145,6 +145,25 @@ class LabelNormalize(object):
         tensor = tensor*self.para
         return tensor
 
+
+class expand_to_3_dims(object):
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, tensor):
+        while tensor.ndim <3:
+            tensor = tensor.unsqueeze(-1)
+        return tensor
+            
+
+class global_normalize(object):
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, tensor):
+        max=tensor.max()
+        tensor=tensor / (max+1e-10)
+
 class GTScaleDown(object):
     def __init__(self, factor=8):
         self.factor = factor

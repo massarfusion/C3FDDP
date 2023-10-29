@@ -66,7 +66,7 @@ def logger(exp_path, exp_name, work_dir, exception, resume=False):
     writer = SummaryWriter(exp_path+ '/' + exp_name)
     log_file = exp_path + '/' + exp_name + '/' + exp_name + '.txt'
     
-    cfg_file = open('./C3_Framework/config.py',"r")
+    cfg_file = open('./C3F/config.py',"r")
     cfg_lines = cfg_file.readlines()
     
     with open(log_file, 'a') as f:
@@ -129,14 +129,14 @@ def vis_results(exp_name, epoch, writer, restore, img, pred_map, gt_map):
         if idx>1:# show only one group
             break
         pil_input = restore(tensor[0])
-        pil_output = torch.from_numpy(tensor[1]/(tensor[2].max()+1e-10)).repeat(3,1,1)
+        pil_output = torch.from_numpy(tensor[1]/(tensor[2].max()+1e-10)).repeat(3,1,1)# predicted heat map
         # try:
         #     import cv2
         #     pil_output = torch.from_numpy(np.numpy( cv2.applyColorMap((pil_output.numpy()) * 255, cv2.COLORMAP_JET) ))/255.0
         # except:
         #     print("Wrong here in misc.utils line 135")
         
-        pil_label = torch.from_numpy(tensor[2]/(tensor[2].max()+1e-10)).repeat(3,1,1)
+        pil_label = torch.from_numpy(tensor[2]/(tensor[2].max()+1e-10)).repeat(3,1,1)# ground truth heap map
         x.extend([pil_to_tensor(pil_input.convert('RGB')), pil_label, pil_output])
     x = torch.stack(x, 0)
     x = vutils.make_grid(x, nrow=3, padding=5)

@@ -1,1 +1,1 @@
-from DDP import DDP
+from .DDP import DDP

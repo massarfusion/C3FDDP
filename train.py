@@ -61,9 +61,12 @@ elif net in ['SANet']:
 elif net in ['CMTL']: 
     from trainer_for_CMTL import Trainer # double losses and double outputs
 elif net in ['DDP']:
-    from trainer import Trainer
+    from trainer_for_DDP import Trainer
 
 #------------Start Training------------
 pwd = os.path.split(os.path.realpath(__file__))[0]
 cc_trainer = Trainer(loading_data,cfg_data,pwd)
-cc_trainer.forward()
+cc_trainer.pl_forward()
+
+import os
+os.system("/usr/bin/shutdown")

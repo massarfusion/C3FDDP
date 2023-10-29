@@ -5,7 +5,7 @@ from .SHHB import SHHB
 from .setting import cfg_data 
 import torch
 
-NUM_WORKER_THREADS=0# DATALOADER的num_works
+NUM_WORKER_THREADS=127# DATALOADER的num_works
 
 def loading_data():
     mean_std = cfg_data.MEAN_STD
@@ -23,7 +23,9 @@ def loading_data():
         standard_transforms.Normalize(*mean_std)
     ])
     gt_transform = standard_transforms.Compose([
-        own_transforms.LabelNormalize(log_para)
+        # own_transforms.LabelNormalize(log_para),
+        own_transforms.global_normalize(),
+        own_transforms.expand_to_3_dims()
     ])
     restore_transform = standard_transforms.Compose([
         own_transforms.DeNormalize(*mean_std),

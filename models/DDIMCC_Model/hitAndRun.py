@@ -12,6 +12,10 @@ from MultiStageMerge import MultiStageMerging
 from Transformer import PatchEmbed, UViT
 
 
+loss = nn.L1Loss()(torch.ones((2,1,12,12))*2, torch.zeros((2,1,12,12)))
+
+
+
 convnext = create_model('convnext_tiny', pretrained=True,features_only=True)
 input=torch.randn(size=(2,3,768,1024))
 output=convnext(input)
@@ -64,9 +68,9 @@ print("output shape is after PatchEmbed: ", output.shape)
 '''
 
 from DDP import DDP
-ddp=DDP()
-input=torch.randn(size=(2,3,768,1024))
-pseudo_gt_map=torch.randn(size=(2,1,768,1024))
+ddp=DDP().cuda()
+input=torch.randn(size=(2,3,768,1024)).cuda()
+pseudo_gt_map=torch.randn(size=(2,1,768,1024)).cuda()
 way2=ddp._inference_step(input, pseudo_gt_map)
 # way2=ddp._forward_step(input, pseudo_gt_map,)
 print(way2.shape, "is way2 shape")

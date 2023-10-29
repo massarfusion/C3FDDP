@@ -11,8 +11,8 @@ import pdb
 import pytorch_lightning as pl
 from einops import rearrange, reduce, repeat
 
-from MultiStageMerge import MultiStageMerging
-from Transformer import UViT
+from .MultiStageMerge import MultiStageMerging
+from .Transformer import UViT
 
 class DDP(pl.LightningModule):
     def __init__(self, pretrained=True):
@@ -36,34 +36,47 @@ class DDP(pl.LightningModule):
             num_classes=-1,
             use_checkpoint=True,
             conv=True,
-            skip=True
+            skip=True,
         )
         self.sample_range=[0, 999]
         self.timesteps_upper_limit=1000
         self.loss_fn = nn.MSELoss()
+        self.LR=1e-3
         # Sampling Configs. How many steps in total and how much steps to take one time.
         self.timesteps_inference=3
         self.timestep_step_length =1
         self.ddim=True
         
         
+        
     
     def training_step(self, batch, batch_idx):
         x,y = batch
         loss, scores, y = self._forward_step(x,y)
-        self.log_dict({"train_loss":loss})
+        self.log_dict({"loss":loss})
         return loss
         
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        loss, scores, y = self._forward_step(x, y)
-        self.log_dict({"train_loss": loss})
-        return loss
+        pred_map = self._inference_step(x)
+        assert pred_map.shape == y.shape
+        mse = nn.MSELoss()(pred_map, y)
+        mae = nn.L1Loss()(pred_map, y)
+        self.log_dict({"val_mae": mae, "val_mse":mse})
+        return mae
     
     def test_step(self, batch, batch_idx):
-        pass
+        x, y = batch
+        pred_map = self._inference_step(x)
+        assert pred_map.shape == y.shape
+        mse = nn.MSELoss()(pred_map, y)
+        mae = nn.L1Loss()(pred_map, y)
+        self.log_dict({"test_mae": mae, "test_mse": mse})
+        return mae
     def predict_step(self, batch, batch_idx: int):
-        pass
+        x, y = batch
+        pred_map = self._inference_step(x)
+        return pred_map
     
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.LR)
@@ -119,10 +132,13 @@ class DDP(pl.LightningModule):
         ho, wo = x.shape[-2], x.shape[-1]
         extracted_feature = self._extract_feature(x)
         batch, c, h, w, device, = *extracted_feature.shape, extracted_feature.device
-        assert gt_map.shape == (
-            batch, 1, ho, wo), "Something wrong with data loading, ground truth map not in correct shape"
-        # To bring gt map down to same size as feature map
-        gt_map = F.interpolate(input=gt_map, size=extracted_feature.shape[2:], mode='bilinear')
+        ## No ground truth needed during inferencing
+        # if gt_map==None:
+        #     gt_map=torch.randn_like(extracted_feature)
+        # assert gt_map.shape == (
+        #     batch, 1, ho, wo), "Something wrong with data loading, ground truth map not in correct shape"
+        # # To bring gt map down to same size as feature map
+        # gt_map = F.interpolate(input=gt_map, size=extracted_feature.shape[2:], mode='bilinear')
         out= self.sample_fn(extracted_feature)
         if rescale:
             out = F.interpolate(
@@ -164,6 +180,7 @@ class DDP(pl.LightningModule):
         '''
         return torch.cos(((t + ns) / (1 + ds)) * math.pi / 2) ** 2
     
+    @torch.no_grad()
     def sample_fn(self,x):
         '''
         Take **extracted** feature map x(1/4 of original RGB image) as input, generate a random noise,  fuse the noise and input feature map, send into unet
@@ -176,7 +193,7 @@ class DDP(pl.LightningModule):
         # depth_t = torch.randn((self.randsteps, 1, h, w), device=device)
         # >>>>> Or This ?
         x=x
-        depth_t = torch.randn(size=(b,1,h,w))
+        depth_t = torch.randn(size=(b,1,h,w),device=x.device)
         # randsteps是什么？
         for times_now, times_next in time_pairs:
             feat = torch.cat([x, depth_t], dim=1)
@@ -189,15 +206,14 @@ class DDP(pl.LightningModule):
             # depth_pred_ = ((depth_pred_ * 2) - 1) * self.bit_scale
             #>>>>>or?
             depth_pred_ =  depth_pred
-            # times_now = self.right_pad_dims_to(feat, times_now)
-            # times_next = self.right_pad_dims_to(feat, times_next)
             while times_now.ndim < feat.ndim:
                 times_now = times_now.unsqueeze(-1)
             while times_next.ndim < feat.ndim:
                 times_next = times_next.unsqueeze(-1)
             sample_func = self.ddim_step if self.ddim else self.ddpm_step
             depth_t = sample_func(depth_t, depth_pred_, times_now, times_next)
-        out = depth_pred.mean(dim=0, keepdim=True)
+        # out = depth_pred.mean(dim=0, keepdim=True)
+        out = depth_pred
         return out
         
     

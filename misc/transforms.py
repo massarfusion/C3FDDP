@@ -156,3 +156,26 @@ class GTScaleDown(object):
         tmp = np.array(img.resize((w//self.factor, h//self.factor), Image.BICUBIC))*self.factor*self.factor
         img = Image.fromarray(tmp)
         return img
+
+
+class expand_to_3_dims(object):
+    def __init__(self):
+        super().__init__()
+    
+    def __call__(self, tensor):
+        while tensor.ndim < 3:
+            tensor = tensor.unsqueeze(0)
+        return tensor
+
+
+class global_normalize(object):
+    def __init__(self):
+        super().__init__()
+    
+    def __call__(self, tensor):
+        tensor = torch.from_numpy(np.array(tensor))
+        # max = tensor.max()
+        # tensor = tensor / (max + 1e-10)
+        # tensor = tensor.clip(0,1)
+        # tensor = 2*tensor-1
+        return tensor

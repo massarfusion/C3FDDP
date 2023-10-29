@@ -3,12 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pdb
 
-from minlora import (
-    LoRAParametrization,
-    add_lora,
-    apply_to_lora,
-    merge_lora,
-)
+# from minlora import (
+#     LoRAParametrization,
+#     add_lora,
+#     apply_to_lora,
+#     merge_lora,
+# )
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -22,10 +22,6 @@ class CrowdCounter(nn.Module):
         
         
         self.CCN = net()
-        if len(gpus) > 1:
-            self.CCN = torch.nn.DataParallel(self.CCN, device_ids=gpus).cuda()
-        else:
-            self.CCN = self.CCN.to(device)
         self.loss_mse_fn = nn.MSELoss().to(device)
     
     @property
